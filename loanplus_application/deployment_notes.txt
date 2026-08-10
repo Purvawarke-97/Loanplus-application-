@@ -1,0 +1,227 @@
+================================================================================
+                    LOANPLUS FULL-STACK DEPLOYMENT GUIDE
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Security Group Port Configurations
+2. Database Setup (AWS RDS MySQL)
+3. Backend Application Server Setup (Python + Flask + Gunicorn)
+4. Frontend Application Server Setup (Nginx Web Server)
+5. Nginx Configuration File (nginx.conf)
+6. End-to-End Verification Procedures
+
+================================================================================
+1. SECURITY GROUP PORT CONFIGURATIONS
+================================================================================
+
+You need three distinct Security Groups (SG) in AWS EC2/RDS.
+
+A. FRONTEND EC2 SECURITY GROUP (e.g., sg-loanplus-frontend)
+   --------------------------------------------------------
+   - Inbound Rules:
+     * Type: HTTP  | Port: 80  | Protocol: TCP | Source: 0.0.0.0/0 (Everywhere)
+     * Type: SSH   | Port: 22  | Protocol: TCP | Source: Your IP Address
+   - Outbound Rules:
+     * Type: All Traffic | Source: 0.0.0.0/0
+
+B. BACKEND EC2 SECURITY GROUP (e.g., sg-loanplus-backend)
+   -------------------------------------------------------
+   - Inbound Rules:
+     * Type: Custom TCP | Port: 5000 | Protocol: TCP | Source: sg-loanplus-frontend (or Frontend EC2 Private IP)
+     * Type: SSH        | Port: 22   | Protocol: TCP | Source: Your IP Address
+   - Outbound Rules:
+     * Type: All Traffic | Source: 0.0.0.0/0
+
+C. AWS RDS MYSQL SECURITY GROUP (e.g., sg-loanplus-rds)
+   -----------------------------------------------------
+   - Inbound Rules:
+     * Type: MYSQL/Aurora | Port: 3306 | Protocol: TCP | Source: sg-loanplus-backend (or Backend EC2 Private IP)
+   - Outbound Rules:
+     * Type: All Traffic | Source: 0.0.0.0/0
+
+
+================================================================================
+2. DATABASE SETUP (AWS RDS MYSQL)
+================================================================================
+
+1. Provision AWS RDS MySQL Instance:
+   - DB Engine: MySQL (8.0 or latest)
+   - Master Username: admin
+   - Network Access: Keep "Publicly Accessible" disabled (No) for security.
+   - VPC Security Group: Assign 'sg-loanplus-rds'.
+
+2. Connect to Database from Backend EC2 Instance:
+   $ mysql -h <RDS_ENDPOINT_ADDRESS> -u admin -p
+
+3. Execute Database Schema Creation:
+   CREATE DATABASE IF NOT EXISTS loanplus_db;
+   USE loanplus_db;
+
+   CREATE TABLE IF NOT EXISTS loan_applications (
+       id INT AUTO_INCREMENT PRIMARY KEY,
+       full_name VARCHAR(150) NOT NULL,
+       email VARCHAR(150) NOT NULL,
+       mobile_number VARCHAR(15) NOT NULL,
+       uid_number VARCHAR(20) NOT NULL,
+       pan_number VARCHAR(10) NOT NULL,
+       cibil_score INT NOT NULL,
+       loan_type VARCHAR(50) NOT NULL,
+       status VARCHAR(20) DEFAULT 'PENDING',
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   );
+
+
+================================================================================
+3. BACKEND APPLICATION SERVER SETUP (PYTHON + FLASK + GUNICORN)
+================================================================================
+
+1. Connect to Backend EC2 Instance via SSH:
+   $ ssh -i your-key.pem ubuntu@<BACKEND_EC2_PUBLIC_IP>
+
+2. Install System Dependencies:
+   sudo apt update && sudo apt upgrade -y
+   sudo apt install -y python3 python3-pip python3-venv git mysql-client
+
+3. Set Up Application Directory:
+   mkdir -p ~/loanplus-backend
+   cd ~/loanplus-backend
+
+4. Copy Application Files into ~/loanplus-backend:
+   - app.py
+   - requirements.txt
+
+5. Create & Activate Virtual Environment:
+   python3 -m venv venv
+   source venv/bin/activate
+
+6. Install Python Modules:
+   pip install --upgrade pip
+   pip install -r requirements.txt
+
+7. Set Environment Variables:
+    export DB_HOST="loanapprec.ca9kw4cmqlgg.us-east-1.rds.amazonaws.com"
+    export DB_USER="admin"
+    export DB_PASSWORD="ABCabc123"
+    export DB_NAME="loanplus_db"
+
+8. Test Backend Application manually:
+   python3 app.py
+   (Default listening port: 5000)
+
+9. Production Daemon Setup using Systemd:
+   Create system service file:
+    sudo nano /etc/systemd/system/loanplus-backend.service
+
+   Add the following content:
+   -----------------------------------------------------------------------------
+   [Unit]
+   Description=Gunicorn instance to serve LoanPlus Backend API
+   After=network.target
+
+   [Service]
+   User=ubuntu
+   Group=www-data
+   WorkingDirectory=/home/ubuntu/loanplus-backend
+   Environment="PATH=/home/ubuntu/loanplus-backend/venv/bin"
+   Environment="DB_HOST=loanappdata.c21su6sokblv.us-east-1.rds.amazonaws.com"
+   Environment="DB_USER=admin"
+   Environment="DB_PASSWORD=ABCabc123"
+   Environment="DB_NAME=loanplus_db"
+   ExecStart=/home/ubuntu/loanplus-backend/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
+
+   [Install]
+   WantedBy=multi-user.target
+   -----------------------------------------------------------------------------
+
+10. Start and Enable Daemon Service:
+    sudo systemctl daemon-reload
+    sudo systemctl start loanplus-backend
+    sudo systemctl enable loanplus-backend
+    sudo systemctl status loanplus-backend
+
+
+================================================================================
+4. FRONTEND APPLICATION SERVER SETUP (NGINX WEB SERVER)
+================================================================================
+
+1. Connect to Frontend EC2 Instance via SSH:
+   $ ssh -i your-key.pem ubuntu@<FRONTEND_EC2_PUBLIC_IP>
+
+2. Install Nginx:
+    sudo apt update
+    sudo apt install -y nginx
+
+3. Deploy Static Web Files:
+   Copy frontend files (index.html, apply.html, styles.css, script.js) to:
+   /var/www/html/
+
+   ### very important ###   :   
+	Update frontend/script.js to simply use relative paths (so it hits port 80):
+	const BACKEND_API_URL = ''; // Empty string lets fetch call /api/apply relative to current domain
+
+   Ensure file ownership:
+    sudo chown -R www-data:www-data /var/www/html
+    sudo chmod -R 755 /var/www/html
+
+4. Configure Frontend Script (`script.js`):
+   Ensure `script.js` contains the Backend EC2 Public IP or DNS:
+   const BACKEND_API_URL = 'http://<BACKEND_EC2_PUBLIC_IP>:5000';
+
+
+================================================================================
+5. NGINX CONFIGURATION FILE (NGINX.CONF / SITE CONFIG)
+================================================================================
+
+Option A: Basic Web Server (Nginx serving Static Files directly)
+-----------------------------------------------------------------
+Edit `/etc/nginx/sites-available/default`:
+$ sudo nano /etc/nginx/sites-available/default
+
+Replace file content with:
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+
+    root /var/www/html;
+    index index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Optional: Proxy API requests through Nginx to bypass CORS completely
+    location /api/ {
+        proxy_pass http://<BACKEND_EC2_PRIVATE_OR_PUBLIC_IP>:5000/api/;
+	proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;    }
+}
+
+
+
+Test and restart Nginx:
+$ sudo nginx -t
+$ sudo systemctl restart nginx
+
+
+================================================================================
+6. END-TO-END VERIFICATION PROCEDURES
+================================================================================
+
+1. Check Backend Health:
+   $ curl http://<BACKEND_EC2_PUBLIC_IP>:5000/api/health
+   Expected Output: {"service":"LoanPlus Backend","status":"healthy"}
+
+2. Test Web Application:
+   Navigate to http://<FRONTEND_EC2_PUBLIC_IP>/ in your web browser.
+
+3. Test Form Submission:
+   Open http://<FRONTEND_EC2_PUBLIC_IP>/apply.html, complete the form, and submit.
+
+4. Verify Database Insertion:
+   Log into RDS and run:
+   SELECT * FROM loanplus_db.loan_applications;

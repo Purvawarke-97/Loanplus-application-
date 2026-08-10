@@ -1,0 +1,309 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Production VPC Architecture
+  - 1 VPC
+  - 7 Subnets
+  - Internet Gateway
+  - Route Tables
+  - Security Groups
+
+Resources:
+
+####################################
+# VPC
+####################################
+
+  ProductionVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.50.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: Production-VPC
+
+####################################
+# Internet Gateway
+####################################
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Production-IGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref ProductionVPC
+
+####################################
+# Frontend Subnets
+####################################
+
+  FrontendSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.50.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Frontend-Subnet-A
+
+  FrontendSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVPC
+      AvailabilityZone: us-east-1b
+      CidrBlock: 10.50.2.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Frontend-Subnet-B
+
+####################################
+# Backend Application Subnets
+####################################
+
+  BackendSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.50.11.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Backend-App-Subnet-A
+
+  BackendSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVPC
+      AvailabilityZone: us-east-1b
+      CidrBlock: 10.50.12.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Backend-App-Subnet-B
+
+####################################
+# Database Subnets
+####################################
+
+  DatabaseSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.50.21.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Database-Subnet-A
+
+  DatabaseSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVPC
+      AvailabilityZone: us-east-1b
+      CidrBlock: 10.50.22.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Database-Subnet-B
+
+  DatabaseSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVPC
+      AvailabilityZone: us-east-1c
+      CidrBlock: 10.50.23.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Database-Subnet-C
+
+####################################
+# Frontend Route Table
+####################################
+
+  FrontendRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ProductionVPC
+      Tags:
+        - Key: Name
+          Value: Frontend-RT
+
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref FrontendRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+####################################
+# Backend Route Table
+####################################
+
+  BackendRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ProductionVPC
+      Tags:
+        - Key: Name
+          Value: Backend-RT
+
+####################################
+# Database Route Table
+####################################
+
+  DatabaseRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ProductionVPC
+      Tags:
+        - Key: Name
+          Value: Database-RT
+
+####################################
+# Route Table Associations
+####################################
+
+  FrontendSubnetAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref FrontendRouteTable
+      SubnetId: !Ref FrontendSubnetA
+
+  FrontendSubnetBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref FrontendRouteTable
+      SubnetId: !Ref FrontendSubnetB
+
+  BackendSubnetAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BackendRouteTable
+      SubnetId: !Ref BackendSubnetA
+
+  BackendSubnetBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BackendRouteTable
+      SubnetId: !Ref BackendSubnetB
+
+  DatabaseSubnetAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DatabaseRouteTable
+      SubnetId: !Ref DatabaseSubnetA
+
+  DatabaseSubnetBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DatabaseRouteTable
+      SubnetId: !Ref DatabaseSubnetB
+
+  DatabaseSubnetCAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DatabaseRouteTable
+      SubnetId: !Ref DatabaseSubnetC
+
+####################################
+# Security Group - Frontend
+####################################
+
+  FrontendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Frontend Security Group
+      GroupName: Frontend-SG
+      VpcId: !Ref ProductionVPC
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: Frontend-SG
+
+####################################
+# Security Group - Backend
+####################################
+
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Backend Application Security Group
+      GroupName: Backend-SG
+      VpcId: !Ref ProductionVPC
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: Backend-SG
+
+####################################
+# Security Group - Database
+####################################
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Database Security Group
+      GroupName: Database-SG
+      VpcId: !Ref ProductionVPC
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: Database-SG
+
+Outputs:
+
+  VPCID:
+    Description: VPC ID
+    Value: !Ref ProductionVPC
+
+  FrontendSG:
+    Value: !Ref FrontendSecurityGroup
+
+  BackendSG:
+    Value: !Ref BackendSecurityGroup
+
+  DatabaseSG:
+    Value: !Ref DatabaseSecurityGroup

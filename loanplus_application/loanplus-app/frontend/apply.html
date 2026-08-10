@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Application - LoanPlus</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo-container">
+      <!-- REPLACE SRC WITH YOUR S3 LOGO URL -->
+      <img src="YOUR_S3_LOGO_IMAGE_URL_HERE" alt="LoanPlus Logo" class="logo-img">
+      <div class="brand-name">Loan<span>Plus</span></div>
+    </div>
+    <a href="index.html" style="color: var(--primary); text-decoration: none; font-weight: 600;">&larr; Back to Home</a>
+  </header>
+
+  <main>
+    <div class="form-container">
+      <h2 style="margin-bottom: 0.5rem; color: var(--primary);">Apply for a Loan</h2>
+      <p style="margin-bottom: 1.5rem; color: #666;">Fill in your details below to submit an initial loan request.</p>
+
+      <div id="alert-box"></div>
+
+      <form id="loanForm">
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input type="text" id="fullName" required placeholder="John Doe">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" required placeholder="john@example.com">
+          </div>
+          <div class="form-group">
+            <label for="mobileNumber">Mobile Number</label>
+            <input type="tel" id="mobileNumber" required placeholder="9876543210">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="uidNumber">UID Number (Aadhaar)</label>
+            <input type="text" id="uidNumber" required placeholder="12-digit UID">
+          </div>
+          <div class="form-group">
+            <label for="panNumber">PAN Card Number</label>
+            <input type="text" id="panNumber" required placeholder="ABCDE1234F">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cibilScore">Credit / CIBIL Score</label>
+            <input type="number" id="cibilScore" min="300" max="900" required placeholder="e.g. 750">
+          </div>
+          <div class="form-group">
+            <label for="loanType">Loan Type</label>
+            <select id="loanType" required>
+              <option value="">-- Select Loan --</option>
+              <option value="Home Loan">Home Loan</option>
+              <option value="Vehicle Loan">Vehicle Loan</option>
+              <option value="Gold Loan">Gold Loan</option>
+              <option value="Personal Loan">Personal Loan</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Submit Application</button>
+      </form>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 LoanPlus Finance Services Ltd. All rights reserved.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
